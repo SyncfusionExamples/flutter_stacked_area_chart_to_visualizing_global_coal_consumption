@@ -165,7 +165,7 @@ class _CoalConsumptionChartState extends State<CoalConsumptionChart> {
     return SfCartesianChart(
       plotAreaBorderWidth: 0,
       title: ChartTitle(
-          text: 'Global Coal Consumption Trends',
+          text: 'Visualize Global Coal Consumption Trends',
           textStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
       primaryXAxis: _createCategoryAxis(),
       primaryYAxis: _createNumericAxis(),
@@ -275,8 +275,8 @@ class _CoalConsumptionChartState extends State<CoalConsumptionChart> {
         yValueMapper: regionDataMappers[index],
         onCreateRenderer: (ChartSeries<dynamic, dynamic> series) =>
             StackedAreaRendererExtension(
-                series as StackedAreaSeries<CoalConsumptionData, String>,
-                index),
+          series as StackedAreaSeries<CoalConsumptionData, String>,
+        ),
       );
     });
   }
@@ -302,26 +302,19 @@ class ChartData {
 
 class StackedAreaRendererExtension<T, D>
     extends StackedAreaSeriesRenderer<T, D> {
-  final int seriesIndex;
   static final Map<int, List<Offset>> bottomBoundary = {};
 
-  StackedAreaRendererExtension(StackedAreaSeries<T, D> series, this.seriesIndex)
-      : super();
+  StackedAreaRendererExtension(StackedAreaSeries<T, D> series) : super();
 
   @override
   StackedAreaSegment<T, D> createSegment() {
-    return StackedAreaSegmentExtension<T, D>(seriesIndex);
+    return StackedAreaSegmentExtension<T, D>();
   }
 }
 
 class StackedAreaSegmentExtension<T, D> extends StackedAreaSegment<T, D> {
-  final int seriesIndex;
   ui.Image? backgroundImage;
   static final Map<int, ui.Image> _loadedImages = {};
-
-  StackedAreaSegmentExtension(this.seriesIndex) {
-    _loadImageForSeries();
-  }
 
   final List<Color> overlayColor = [
     Colors.yellow.withValues(alpha: 0.5),
@@ -337,25 +330,34 @@ class StackedAreaSegmentExtension<T, D> extends StackedAreaSegment<T, D> {
     'assets/coal3.jpg',
   ];
 
-  void _loadImageForSeries() async {
-    if (_loadedImages.containsKey(seriesIndex)) {
-      backgroundImage = _loadedImages[seriesIndex];
+  Future<void> _loadImageForSeries() async {
+    if (_loadedImages.containsKey(series.index)) {
+      backgroundImage = _loadedImages[series.index];
     } else {
-      //Load image based on seriesIndex.
-      final ByteData data = await rootBundle.load(images[seriesIndex]);
-      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
-      final frame = await codec.getNextFrame();
-      backgroundImage = frame.image;
-      _loadedImages[seriesIndex] = backgroundImage!;
+      try {
+        final ByteData data = await rootBundle.load(images[series.index]);
+        final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+        final frame = await codec.getNextFrame();
+        backgroundImage = frame.image;
+        _loadedImages[series.index] = backgroundImage!;
+      } catch (e) {
+        debugPrint("Image loading error: $e");
+      }
     }
   }
 
   @override
   void onPaint(Canvas canvas) {
-    if (points.isEmpty || backgroundImage == null) return;
+    if (points.isEmpty) return;
+
+    // Ensure the image is loaded before painting
+    if (backgroundImage == null) {
+      _loadImageForSeries();
+      return;
+    }
 
     Path segmentPath = _generateSegmentPath(canvas);
-    _storeBottomBoundaryPoints();
+    _buildBottomBoundaryPoints();
 
     // Paint for the image background
     Paint fillPaint = Paint()
@@ -365,14 +367,14 @@ class StackedAreaSegmentExtension<T, D> extends StackedAreaSegment<T, D> {
         backgroundImage!,
         TileMode.repeated,
         TileMode.repeated,
-        Matrix4.diagonal3Values(1, 1, 1).storage,
+        Matrix4.identity().storage,
       );
 
     canvas.drawPath(segmentPath, fillPaint);
 
     // Overlay color
     final overlayPaint = Paint()
-      ..color = overlayColor[seriesIndex]
+      ..color = overlayColor[series.index]
       ..style = PaintingStyle.fill;
     canvas.drawPath(segmentPath, overlayPaint);
 
@@ -391,8 +393,8 @@ class StackedAreaSegmentExtension<T, D> extends StackedAreaSegment<T, D> {
     }
 
     List<Offset> bottomPoints =
-        StackedAreaRendererExtension.bottomBoundary[seriesIndex - 1] ?? [];
-    if (seriesIndex == 0 || bottomPoints.isEmpty) {
+        StackedAreaRendererExtension.bottomBoundary[series.index - 1] ?? [];
+    if (series.index == 0 || bottomPoints.isEmpty) {
       double chartBottomY = canvas.getLocalClipBounds().bottom;
       for (int i = points.length - 1; i >= 0; i--) {
         path.lineTo(points[i].dx, chartBottomY);
@@ -405,8 +407,8 @@ class StackedAreaSegmentExtension<T, D> extends StackedAreaSegment<T, D> {
     return path..close();
   }
 
-  void _storeBottomBoundaryPoints() {
-    StackedAreaRendererExtension.bottomBoundary[seriesIndex] =
+  void _buildBottomBoundaryPoints() {
+    StackedAreaRendererExtension.bottomBoundary[series.index] =
         List.from(points);
   }
 }
