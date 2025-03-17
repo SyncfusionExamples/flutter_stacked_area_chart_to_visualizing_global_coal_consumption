@@ -14,7 +14,6 @@ class CoalConsumptionApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      // theme: ThemeData(brightness: Brightness.dark),
       home: Scaffold(
         body: Padding(
           padding: const EdgeInsets.all(8.0),
@@ -262,8 +261,7 @@ class _CoalConsumptionChartState extends State<CoalConsumptionChart> {
 
   List<StackedAreaSeries<CoalConsumptionData, String>>
       _buildStackedAreaSeries() {
-    final List<double Function(CoalConsumptionData, int)>
-        regionDataMappers = [
+    final List<double Function(CoalConsumptionData, int)> regionDataMappers = [
       (CoalConsumptionData data, int index) => data.asiaPacific,
       (CoalConsumptionData data, int index) => data.restOfWorld,
       (CoalConsumptionData data, int index) => data.northAmerica,
@@ -276,7 +274,7 @@ class _CoalConsumptionChartState extends State<CoalConsumptionChart> {
         xValueMapper: (CoalConsumptionData data, _) => data.year,
         yValueMapper: regionDataMappers[index],
         onCreateRenderer: (ChartSeries<dynamic, dynamic> series) =>
-            CustomStackedAreaRenderer(
+            StackedAreaRendererExtension(
                 series as StackedAreaSeries<CoalConsumptionData, String>,
                 index),
       );
@@ -302,25 +300,26 @@ class ChartData {
   final Color color;
 }
 
-class CustomStackedAreaRenderer<T, D> extends StackedAreaSeriesRenderer<T, D> {
+class StackedAreaRendererExtension<T, D>
+    extends StackedAreaSeriesRenderer<T, D> {
   final int seriesIndex;
   static final Map<int, List<Offset>> bottomBoundary = {};
 
-  CustomStackedAreaRenderer(StackedAreaSeries<T, D> series, this.seriesIndex)
+  StackedAreaRendererExtension(StackedAreaSeries<T, D> series, this.seriesIndex)
       : super();
 
   @override
   StackedAreaSegment<T, D> createSegment() {
-    return CustomStackedAreaSegment<T, D>(seriesIndex);
+    return StackedAreaSegmentExtension<T, D>(seriesIndex);
   }
 }
 
-class CustomStackedAreaSegment<T, D> extends StackedAreaSegment<T, D> {
+class StackedAreaSegmentExtension<T, D> extends StackedAreaSegment<T, D> {
   final int seriesIndex;
   ui.Image? backgroundImage;
   static final Map<int, ui.Image> _loadedImages = {};
 
-  CustomStackedAreaSegment(this.seriesIndex) {
+  StackedAreaSegmentExtension(this.seriesIndex) {
     _loadImageForSeries();
   }
 
@@ -392,7 +391,7 @@ class CustomStackedAreaSegment<T, D> extends StackedAreaSegment<T, D> {
     }
 
     List<Offset> bottomPoints =
-        CustomStackedAreaRenderer.bottomBoundary[seriesIndex - 1] ?? [];
+        StackedAreaRendererExtension.bottomBoundary[seriesIndex - 1] ?? [];
     if (seriesIndex == 0 || bottomPoints.isEmpty) {
       double chartBottomY = canvas.getLocalClipBounds().bottom;
       for (int i = points.length - 1; i >= 0; i--) {
@@ -407,6 +406,7 @@ class CustomStackedAreaSegment<T, D> extends StackedAreaSegment<T, D> {
   }
 
   void _storeBottomBoundaryPoints() {
-    CustomStackedAreaRenderer.bottomBoundary[seriesIndex] = List.from(points);
+    StackedAreaRendererExtension.bottomBoundary[seriesIndex] =
+        List.from(points);
   }
 }
